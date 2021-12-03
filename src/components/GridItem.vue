@@ -484,6 +484,7 @@
                 this.$emit("container-resized", this.i, this.h, this.w, styleProps.height, styleProps.width);
             },
             handleResize: function (event) {
+                console.log("resize Event");
                 if (this.static) return;
                 const position = getControlPosition(event);
                 // Get the current drag point from the event. This is used as the offset.
