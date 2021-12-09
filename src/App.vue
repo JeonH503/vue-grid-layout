@@ -1,314 +1,391 @@
-<template>
-    <div id="app">
-        <h1 style="text-align: center">Vue Grid Layout</h1>
-        <!--<pre>{{ layout | json }}</pre>-->
-        <div>
-            <div class="layoutJSON">
-                Displayed as <code>[x, y, w, h]</code>:
-                <div class="columns">
-                    <div class="layoutItem" v-for="item in layout" :key="item.i">
-                        <b>{{item.i}}</b>: [{{item.x}}, {{item.y}}, {{item.w}}, {{item.h}}]
-                    </div>
-                </div>
-            </div>
-            <!--<div class="layoutJSON">
-                Displayed as <code>[x, y, w, h]</code>:
-                <div class="columns">
-                    <div class="layoutItem" v-for="item in layout2">
-                        <b>{{item.i}}</b>: [{{item.x}}, {{item.y}}, {{item.w}}, {{item.h}}]
-                    </div>
-                </div>
-            </div>-->
-        </div>
-        <div id="content">
-            <button @click="decreaseWidth">Decrease Width</button>
-            <button @click="increaseWidth">Increase Width</button>
-            <button @click="scaleHalf">Scale x0.5</button>
-            <button @click="scaleThreeQuarters">Scale x0.75</button>
-            <button @click="scaleIdentity">Scale x1.0</button>
-            <button @click="addItem">Add an item</button>
-            <button @click="addItemDynamically">Add an item dynamically</button>
-            <!-- Add to show rtl support -->
-            <button @click="changeDirection">Change Direction</button>
-            <input type="checkbox" v-model="draggable"/> Draggable
-            <input type="checkbox" v-model="resizable"/> Resizable
-            <input type="checkbox" v-model="mirrored"/> Mirrored
-            <input type="checkbox" v-model="responsive"/> Responsive
-            <input type="checkbox" v-model="preventCollision"/> Prevent Collision
-            <div style="margin-top: 10px;margin-bottom: 10px;">
-                Row Height: <input type="number" v-model="rowHeight"/> Col nums: <input type="number" v-model="colNum"/>
-                Margin x: <input type="number" v-model="marginX"/> Margin y: <input type="number" v-model="marginY"/>
-            </div>
+ <template>
+    <div id="app" style="height:100vh" ref="app"
+    @mousemove="rotateOnMouse"
+    @mouseup="()=>{rotationEnable = false}">
+        <div class="grid">
+            <div class="temp"
+            id="temp"
+            :style="{
+            'background-size': `${columnWidth}px ${rowHeight}px`,
+            height: `200%`,
+            }"></div>
             <grid-layout
-                    id="grid-layout"
-                    :margin="[parseInt(marginX), parseInt(marginY)]"
-                    :layout.sync="layout"
-                    :col-num="parseInt(colNum)"
-                    :row-height="rowHeight"
-                    :is-draggable="draggable"
-                    :is-resizable="resizable"
-                    :is-mirrored="mirrored"
-                    :prevent-collision="preventCollision"
-                    :vertical-compact="true"
-                    :use-css-transforms="true"
-                    :responsive="responsive"
-                    :transformScale="transformScale"
-                    @layout-created="layoutCreatedEvent"
-                    @layout-before-mount="layoutBeforeMountEvent"
-                    @layout-mounted="layoutMountedEvent"
-                    @layout-ready="layoutReadyEvent"
-                    @layout-updated="layoutUpdatedEvent"
-                    @breakpoint-changed="breakpointChangedEvent"
+                id="grid-layout"
+                :layout.sync="layout"
+                :col-num="24*3"
+                :row-height="rowHeight - 26.0 / 24"
+                :col-width="30"
+                :is-draggable="draggable"
+                :responsive="false"
+                :vertical-compact="false"
+                :prevent-collision="true"
+                :margin="[1, 1]"
+                :use-css-transforms="true"
+                :transformScale="transformScale"
             >
-                <grid-item v-for="item in layout" :key="item.i"
-                           :static="item.static"
-                           :x="item.x"
-                           :y="item.y"
-                           :w="item.w"
-                           :h="item.h"
-                           :i="item.i"
-                           :min-w="item.minW"
-                           :max-w="item.maxW"
-                           :min-x="item.minX"
-                           :max-x="item.maxX"
-                           :min-y="item.minY"
-                           :max-y="item.maxY"
-                           @resize="resize"
-                           @move="move"
-                           @resized="resized"
-                           @container-resized="containerResized"
-                           @moved="moved"
+                <grid-item v-for="(item,index) in layout"
+                    :class="item.i"
+                    :key="index"
+                    :static="item.static"
+                    :preserveAspectRatio="true"
+                    :x="item.x"
+                    :y="item.y"
+                    :w="item.w"
+                    :h="item.h"
+                    :i="item.i"
+                    @moved="gridMovedEvent"
                 >
-                    <!--<custom-drag-element :text="item.i"></custom-drag-element>-->
-                    <test-element :text="item.i"></test-element>
-                    <!--<button @click="clicked">CLICK ME!</button>-->
+                    <div :id="item.i" class="hoverWrap" style="z-index:100" @mouseover="(e)=>{girdMouseOverEvent(e,index)}">
+                        <div
+                        v-if="item.mouseover"
+                        style="
+                        position:absolute;
+                        z-index: 1000;
+                        top:0px;
+                        width:100%;
+                        height:20px;
+                        background:rgba(0,0,0,0.5);
+                        display:none
+                        ">
+                        </div>
+                        <video v-if="item.mode === 'zoom'" :ref="'zoomVideo '+ item.parent" style="z-index:1; width:100%; height:100%; transform:scale(2.1,2.1); transform-origin:0px 0px" playsinline autoplay muted loop id="bgvid">
+                            <source src="https://media.w3.org/2010/05/sintel/trailer.webm" type="video/mp4">
+                        </video>
+                        <video v-else-if="item.mode === 'standard'" ref="original" class="original video" style="z-index:1; width:100%; height:100%;" playsinline autoplay muted loop id="bgvid">
+                            <source src="https://media.w3.org/2010/05/sintel/trailer.webm" type="video/mp4">
+                        </video>
+                        <button v-if="item.mode === 'standard'"
+                        :ref="'zoom ' + index"
+                        @mousedown="(e)=>{zoomBoxMouseDown(e,item)}"
+                        @mouseup="zoomBoxMouseUp"
+                        @mousemove="(e)=>{zoomBoxMouseMove(e,index,item)}"
+                        style="
+                        width: 158.5px;
+                        height: 92px;
+                        color: white;
+                        z-index: 1;
+                        position: absolute;
+                        top: 0px;
+                        left: 0px;
+                        box-shadow: 0 0 0 3px #409eff inset;
+                        cursor:pointer"></button>
+                    </div>
                 </grid-item>
             </grid-layout>
-            <hr/>
-            <!--<grid-layout
-                    :layout="layout2"
-                    :col-num="12"
-                    :row-height="rowHeight"
-                    :is-draggable="draggable"
-                    :is-resizable="resizable"
-                    :vertical-compact="true"
-                    :use-css-transforms="true"
-            >
-                <grid-item v-for="item in layout2" :key="item.i"
-                           :x="item.x"
-                           :y="item.y"
-                           :w="item.w"
-                           :h="item.h"
-                           :min-w="2"
-                           :min-h="2"
-                           :i="item.i"
-                           :is-draggable="item.draggable"
-                           :is-resizable="item.resizable"
-                >
-                    <test-element :text="item.i"></test-element>
-                </grid-item>
-            </grid-layout>-->
         </div>
     </div>
 </template>
 
 <script>
-    import GridItem from './components/GridItem.vue';
-    import GridLayout from './components/GridLayout.vue';
-    // import ResponsiveGridLayout from './components/ResponsiveGridLayout.vue';
-    import TestElement from './components/TestElement.vue';
-    import CustomDragElement from './components/CustomDragElement.vue';
-    import {getDocumentDir, setDocumentDir} from "./helpers/DOM";
-    //var eventBus = require('./eventBus');
-
-    let testLayout = [
-        {"x":0,"y":0,"w":2,"h":2,"i":"0", resizable: true, draggable: true, static: false, minY: 0, maxY: 2},
-        {"x":2,"y":0,"w":2,"h":4,"i":"1", resizable: null, draggable: null, static: true},
-        {"x":4,"y":0,"w":2,"h":5,"i":"2", resizable: false, draggable: false, static: false, minX: 4, maxX: 4, minW: 2, maxW: 2},
-        {"x":6,"y":0,"w":2,"h":3,"i":"3", resizable: false, draggable: false, static: false},
-        {"x":8,"y":0,"w":2,"h":3,"i":"4", resizable: false, draggable: false, static: false},
-        {"x":10,"y":0,"w":2,"h":3,"i":"5", resizable: false, draggable: false, static: false},
-        {"x":0,"y":5,"w":2,"h":5,"i":"6", resizable: false, draggable: false, static: false},
-        {"x":2,"y":5,"w":2,"h":5,"i":"7", resizable: false, draggable: false, static: false},
-        {"x":4,"y":5,"w":2,"h":5,"i":"8", resizable: false, draggable: false, static: false},
-        {"x":6,"y":3,"w":2,"h":4,"i":"9", resizable: false, draggable: false, static: true},
-        {"x":8,"y":4,"w":2,"h":4,"i":"10", resizable: false, draggable: false, static: false},
-        {"x":10,"y":4,"w":2,"h":4,"i":"11", resizable: false, draggable: false, static: false, minY: 4},
-        {"x":0,"y":10,"w":2,"h":5,"i":"12", resizable: false, draggable: false, static: false},
-        {"x":2,"y":10,"w":2,"h":5,"i":"13", resizable: false, draggable: false, static: false},
-        {"x":4,"y":8,"w":2,"h":4,"i":"14", resizable: false, draggable: false, static: false},
-        {"x":6,"y":8,"w":2,"h":4,"i":"15", resizable: false, draggable: false, static: false},
-        {"x":8,"y":10,"w":2,"h":5,"i":"16", resizable: false, draggable: false, static: false},
-        {"x":10,"y":4,"w":2,"h":2,"i":"17", resizable: false, draggable: false, static: false},
-        {"x":0,"y":9,"w":2,"h":3,"i":"18", resizable: false, draggable: false, static: false},
-        {"x":2,"y":6,"w":2,"h":2,"i":"19", resizable: false, draggable: false, static: false}
-    ];
-
-    export default {
-        name: 'app',
-        components: {
-            GridLayout,
-            GridItem,
-            TestElement,
-            CustomDragElement,
+// import { GridLayout, GridItem } from "vue-grid-layout"
+import GridItem from './components/GridItem.vue';
+import GridLayout from './components/GridLayout.vue';
+export default {
+    components: {
+        GridLayout,
+        GridItem,
+    },
+    computed: {
+        rowHeight() {
+            return window.innerHeight / 20;
         },
-        data () {
-            return {
-                layout: JSON.parse(JSON.stringify(testLayout)),
-                layout2: JSON.parse(JSON.stringify(testLayout)),
-                draggable: true,
-                resizable: true,
-                mirrored: false,
-                responsive: true,
-                transformScale: 1,
-                preventCollision: false,
-                rowHeight: 30,
-                colNum: 12,
-                index: 0,
-                marginX: 10,
-                marginY: 10,
+        columnWidth() {
+            //스크롤이 차지하는 크기를 생각해야함
+            return window.innerWidth / 24;
+        },
+        videoHeight() {
+            return this.originalVideoHeight
+        }
+    },
+    mounted() {
+        this.gridItems = document.getElementsByClassName("vue-grid-item vue-resizable cssTransforms")
+        setTimeout(() => {
+            this.originalVideoHeight = this.$refs.original[0].offsetHeight
+        },100)
+    },
+    data() {
+        return {
+            layout: [
+                {"x":0,"y":0,"w":4,"h":4,"i":"0", static: false, mouseover:false, mode:'standard'},
+                {"x":2,"y":0,"w":4,"h":4,"i":"1", static: false, mouseover:false, mode:'zoom', parent:"0"},
+                {"x":4,"y":0,"w":4,"h":4,"i":"2", static: false, mouseover:false, mode:'none'},
+            ],
+            hlsUrls: [
+
+            ],
+            draggable: true,
+            resizable: true,
+            transformScale:1,
+            gridLayoutHeight:0,
+            gridLayoutWidth:0,
+            gridItems:[],
+            rotationEnable:false,
+            targetedGrid:null,
+            preTransform:null,
+            lastMouseEvent:null,
+            originalVideoHeight:0,
+            zoomBoxGrab:false,
+            gapX:null,
+            gapY:null,
+
+        }
+    },
+    methods: {
+        girdMouseOverEvent(e,index) {
+            // this.$set(this.layout,index,{...this.layout[index],mouseover:true});
+            this.$set(this.layout[index],'mouseover',true)
+        },
+        zoomBoxMouseDown(e,gridItem) {
+            console.log(this.layout)
+            this.zoomBoxGrab = true
+
+            const el = e.target;
+
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            const ballPos = el.getBoundingClientRect();
+            console.log(document.getElementById('1').getBoundingClientRect())
+            const ballX = ballPos.x - 58 - (gridItem.x * this.columnWidth);
+            const ballY = ballPos.y - 2 - (gridItem.y * this.rowHeight);
+
+            this.gapX = mouseX - ballX;
+            this.gapY = mouseY - ballY;
+        },
+        zoomBoxMouseMove(e,index,gridItem) {
+            if(this.zoomBoxGrab){
+                const el = e.target;
+                const zoomVideo = this.$refs['zoomVideo ' + index]
+                const mouseX = e.clientX
+                const mouseY = e.clientY
+
+                const videoW = gridItem.w * this.columnWidth
+                const videoH = gridItem.h * this.rowHeight
+
+                // 선택한 공 안에 있는 마우스 커서의 XY좌표
+                const gapX = this.gapX
+                const gapY = this.gapY
+
+                // 마우스 커서의 위치에 따른 공의 XY좌표
+                const ballX = mouseX - gapX
+                const ballY = mouseY - gapY
+
+                let transformOriginX = ballX;
+                let transformOriginY = ballY;
+
+                el.style.left = ballX+"px"
+                el.style.top = ballY+"px"
+
+                if(ballX < 0) {
+                    el.style.left = "0px"
+                    transformOriginX = 0
+                }
+
+                if(ballY < 0) {
+                    el.style.top = "0px"
+                    transformOriginY = 0
+                }
+
+                if(ballX+el.clientWidth > videoW) {
+                    let X = videoW - el.clientWidth
+                    el.style.left = X-3 + "px"
+                    transformOriginX = X-3
+                }
+
+                if(ballY+el.clientHeight > videoH) {
+                    let Y = videoH - el.clientHeight
+                    el.style.top = Y-3 + "px"
+                    transformOriginY = Y-3
+                }
+
+                zoomVideo[0].style.transformOrigin = `${transformOriginX*2}px ${transformOriginY*2}px`
+
             }
         },
-        mounted: function () {
-            this.index = this.layout.length;
+        zoomBoxMouseUp() {
+            this.zoomBoxGrab = false
+            this.gapX = null
+            this.gapY = null
         },
-        methods: {
-            clicked: function() {
-                window.alert("CLICK!");
-            },
-            increaseWidth: function() {
-                let width = document.getElementById("content").offsetWidth;
-                width += 20;
-                document.getElementById("content").style.width = width+"px";
-            },
-            decreaseWidth: function() {
-                let width = document.getElementById("content").offsetWidth;
-                width -= 20;
-                document.getElementById("content").style.width = width+"px";
-            },
-            scaleHalf: function() {
-              this.transformScale = 0.5
-              document.getElementById("grid-layout").style.transform = "scale(0.5)";
-            },
-            scaleThreeQuarters: function() {
-              this.transformScale = 0.75
-              document.getElementById("grid-layout").style.transform = "scale(0.75)";
-            },
-            scaleIdentity: function() {
-              this.transformScale = 1
-              document.getElementById("grid-layout").style.transform = "scale(1)";
-            },
-            removeItem: function(item) {
-                //console.log("### REMOVE " + item.i);
-                this.layout.splice(this.layout.indexOf(item), 1);
-            },
-            addItem: function() {
-                // let self = this;
-                //console.log("### LENGTH: " + this.layout.length);
-                let item = {"x":0,"y":0,"w":2,"h":2,"i":this.index+"", whatever: "bbb"};
-                this.index++;
-                this.layout.push(item);
-            },
-            addItemDynamically: function() {
-                let item = {
-                  x: (this.layout.length * 2) % (this.colNum || 12),
-                  y: this.layout.length + (this.colNum || 12),
-                  w: 2,
-                  h: 2,
-                  i: this.index+"",
-                }
-                this.index++;
-                this.layout.push(item);
-            },
-            move: function(i, newX, newY){
-                console.log("MOVE i=" + i + ", X=" + newX + ", Y=" + newY);
-            },
-            resize: function(i, newH, newW, newHPx, newWPx){
-                console.log("RESIZE i=" + i + ", H=" + newH + ", W=" + newW + ", H(px)=" + newHPx + ", W(px)=" + newWPx);
-            },
-            moved: function(i, newX, newY){
-                console.log("### MOVED i=" + i + ", X=" + newX + ", Y=" + newY);
-            },
-            resized: function(i, newH, newW, newHPx, newWPx){
-                console.log("### RESIZED i=" + i + ", H=" + newH + ", W=" + newW + ", H(px)=" + newHPx + ", W(px)=" + newWPx);
-            },
-            containerResized: function(i, newH, newW, newHPx, newWPx){
-                console.log("### CONTAINER RESIZED i=" + i + ", H=" + newH + ", W=" + newW + ", H(px)=" + newHPx + ", W(px)=" + newWPx);
-            },
-            /**
-             * Add change direction button
-             */
-            changeDirection() {
-                let documentDirection = getDocumentDir();
-                let toggle = "";
-                if (documentDirection === "rtl") {
-                    toggle = "ltr"
+        gridMovedEvent() {
+            this.gridLayoutHeight = parseInt(document.getElementById("grid-layout").style.height.replace('px',''))
+            this.gridLayoutWidth = parseInt(document.getElementById("grid-layout").style.width.replace('px',''))
+
+            //높이
+            if(this.gridLayoutHeight > window.innerHeight / this.transformScale)
+                this.ZoomOut()
+            else if(window.innerHeight / this.transformScale === window.innerHeight)
+                return;
+            else if(this.gridLayoutHeight+100 < window.innerHeight / this.transformScale)
+                this.ZoomIn()
+
+        },
+        scaleHalf: function() {
+            this.transformScale = 0.5
+            document.getElementById("grid-layout").style.transform = "scale(0.5)";
+            document.getElementById("temp").style.transform = "scale(0.5)";
+        },
+        scaleThreeQuarters: function() {
+            this.transformScale = 0.75
+            document.getElementById("grid-layout").style.transform = "scale(0.75)";
+            document.getElementById("temp").style.transform = "scale(0.75)";
+        },
+        scaleIdentity: function() {
+            this.transformScale = 1
+            document.getElementById("grid-layout").style.transform = "scale(1)";
+            document.getElementById("temp").style.transform = "scale(1)";
+        },
+
+        ZoomIn: function() {
+            this.transformScale = Math.round((this.transformScale + 0.1) * 10) / 10
+            // this.transformScale = this.transformScale.toFixed(1)
+            document.getElementById("grid-layout").style.transform = "scale("+this.transformScale+")";
+            document.getElementById("temp").style.transform = "scale("+this.transformScale+")";
+
+            if(this.gridLayoutHeight+100 < window.innerHeight / this.transformScale && this.transformScale != 1.0)
+                this.ZoomIn()
+        },
+        ZoomOut: function() {
+            this.transformScale =Math.round((this.transformScale - 0.1) * 10) / 10
+            // this.transformScale = this.transformScale.toFixed(1)
+            document.getElementById("grid-layout").style.transform = "scale("+this.transformScale+")";
+            document.getElementById("temp").style.transform = "scale("+this.transformScale+")";
+
+            if(this.gridLayoutHeight > window.innerHeight / this.transformScale)
+                this.ZoomOut()
+        },
+        rotateOnMouse(e) {
+            if(this.rotationEnable) {
+                let grid = document.getElementsByClassName("vue-grid-item vue-resizable cssTransforms "+this.targetedGrid)[0]
+                // var offset = grid.offset();
+                var center_x = (grid.offsetLeft) + (grid.clientWidth / 2);
+                var center_y = (grid.offsetTop) + (grid.clientHeight / 2);
+
+                var mouse_x = e.pageX;
+                var mouse_y = e.pageY;
+                var radians = Math.atan2(mouse_x - center_x, mouse_y - center_y);
+                var degree = (radians * (180 / Math.PI) * -1) + 100;
+
+                if(this.rotationEnable){
+                    grid.style.transform = this.preTransform
+                    grid.style.MozTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.WebkitTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.OTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.msTransform += ' rotate(' + degree + 'deg)';
                 } else {
-                    toggle = "rtl"
+                    this.preTransform = grid.style.transform;
+                    grid.style.MozTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.WebkitTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.OTransform += ' rotate(' + degree + 'deg)';
+                    grid.style.msTransform += ' rotate(' + degree + 'deg)';
                 }
-                setDocumentDir(toggle);
-                //eventBus.$emit('directionchange');
-            },
 
-            layoutCreatedEvent: function(newLayout){
-                console.log("Created layout: ", newLayout)
-            },
-            layoutBeforeMountEvent: function(newLayout){
-                console.log("beforeMount layout: ", newLayout)
-            },
-            layoutMountedEvent: function(newLayout){
-                console.log("Mounted layout: ", newLayout)
-            },
-            layoutReadyEvent: function(newLayout){
-                console.log("Ready layout: ", newLayout)
-            },
-            layoutUpdatedEvent: function(newLayout){
-                console.log("Updated layout: ", newLayout)
-            },
-            breakpointChangedEvent: function(newBreakpoint, newLayout){
-                console.log("breakpoint changed breakpoint=", newBreakpoint, ", layout: ", newLayout );
+
             }
-
         },
+        rotationStart(gridId) {
+            this.rotationEnable = true;
+            this.targetedGrid = gridId
+        },
+        rotationStop() {
+            this.rotationEnable = false;
+        },
+        // rotation(e) {
+        //     if(this.rotationEnable) {
+        //         this.lastMouseEvent = {
+        //             x: e.clientX,
+        //             y: e.clientY
+        //         }
+        //     }
+        // },
+        // updateAngleToMouse(newPoint,element) {
+        //     let
+        // }
+
     }
+}
 </script>
 
-<style>
-    /*    #app {
-            font-family: 'Avenir', Helvetica, Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-align: center;
-            color: #2c3e50;
-            margin-top: 60px;
-        }
+<style scoped>
+.temp {
+    /* opacity: .75; */
+    position: absolute;
+    width: 300vw;
+    background-repeat: repeat;
+    background-image: linear-gradient(
+90deg
+,rgba(0, 0, 0, 0.15) 2px,transparent 0),linear-gradient(
+180deg
+,rgba(0, 0, 0, 0.15) 2px,transparent 0);
+}
+.vue-grid-layout {
+    transition:0.5s all;
+    background: rgba(0, 0, 0, 0);
+    transform-origin:top left;
+    width: 300vw;
+    height:100%;
+}
+.temp{
+    transform-origin:top left;
+    transition:0.5s all;
+    transform: scale( 1,1 )
+}
 
-        h1, h2 {
-            font-weight: normal;
-        }
+.vue-grid-item {
+    overflow:hidden;
+}
 
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        li {
-            display: inline-block;
-            margin: 0 10px;
-        }
-
-        a {
-            color: #42b983;
-        }*/
-</style>
-
-<style lang="scss">
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  /*text-align: center;*/
-  color: #2c3e50;
-  /*margin-top: 60px;*/
+.vue-grid-item:not(.vue-grid-placeholder) {
+    background: black;
+    border: 1px solid;
+}
+.vue-grid-item .resizing {
+    opacity: 0.9;
+}
+.vue-grid-item .static {
+    background: #cce;
+}
+.vue-grid-item .text {
+    font-size: 24px;
+    text-align: center;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    height: 100%;
+    width: 100%;
+}
+.vue-grid-item .no-drag {
+    height: 100%;
+    width: 100%;
+}
+.vue-grid-item .minMax {
+    font-size: 12px;
+}
+.vue-grid-item .add {
+    cursor: pointer;
+}
+.vue-draggable-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 0;
+    left: 0;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><circle cx='5' cy='5' r='5' fill='#999999'/></svg>") no-repeat;
+    background-position: bottom right;
+    padding: 0 8px 8px 0;
+    background-repeat: no-repeat;
+    background-origin: content-box;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+.hoverWrap:hover {
+    background: linear-gradient(rgba(0,0,0,0.3) 8%, rgba(0,0,0,0) 8%);
+}
+.hoverWrap {
+    height: 100%;;
+    /* background: linear-gradient(#3498db 50%, #ffffff 50%); */
 }
 </style>
