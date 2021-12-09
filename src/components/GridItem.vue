@@ -518,6 +518,10 @@
                     }
                     case "resizeend": {
                         //console.log("### resize end => x=" +this.innerX + " y=" + this.innerY + " w=" + this.innerW + " h=" + this.innerH);
+                        if(parseFloat(this.innerW) / parseFloat(this.innerH) !== 1.0){
+                            this.innerW = this.previousW;
+                            this.innerH = this.previousH;
+                        }
                         pos = this.calcPosition(this.innerX, this.innerY, this.innerW, this.innerH);
                         newSize.width = pos.width;
                         newSize.height = pos.height;
